@@ -1,0 +1,9 @@
+{
+    "verbose": false,
+    "watch": ["src"],
+    "ext": "js",
+    "exec": "babel-node src/index.js",
+    "nodemonConfig": {
+        "delay": 2500
+    }
+}
