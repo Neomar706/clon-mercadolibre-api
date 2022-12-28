@@ -1,0 +1,89 @@
+1XX Respuestas de información
+
+100 Continuar
+101 Protocolos de conmutación
+102 Procesamiento
+103 Consejos Tempranos
+
+
+
+
+2XX Éxito
+
+200 OK
+201 Creado
+202 Aceptado
+203 Información no autorizada
+204 Sin contenido
+205 Restablecer contenido
+206 Contenido parcial
+207 Multi-Status
+208 Ya reportado
+226 IM Utilizado
+
+
+
+
+Redirección 3XX
+
+300 opciones múltiples
+301 Movido permanentemente
+302 Encontrado
+303 Véase Otros
+304 No Modificado
+305 Use Proxy
+306 Switch Proxy
+307 Redirección temporal
+308 Redirección permanente
+
+
+
+
+4XX Errores del cliente
+
+400 Solicitud incorrecta
+401 No autorizado
+402 Pago requerido
+403 Prohibido
+404 No encontrado
+405 Método no permitido
+406 No aceptable
+407 Autenticación de proxy requerida
+408 Tiempo de espera de solicitud
+409 Conflicto
+410 Gone
+411 Longitud requerida
+412 Error en la condición previa
+413 Carga útil demasiado grande
+414 URI demasiado largo
+415 Tipo de soporte no compatible
+416 Rango no satisfacible
+417 La expectativa fracasó
+418 Soy una tetera
+420 Fallo del método
+421 Solicitud mal dirigida
+422 Entidad no procesable
+423 Cerrado
+424 Dependencia fallida
+426 Actualización requerida
+428 Condicione previa requerida
+429 Demasiadas solicitudes
+431 Campos de encabezado de solicitud demasiado grandes
+451 No disponible por razones legales
+
+
+
+
+5XX Errores del servidor
+
+500 Error del servidor interno
+501 No implementado
+502 Bad Gateway
+503 Servicio no disponible
+504 Tiempo de espera de la puerta de enlace
+505 Versión Http no compatible
+506 Varient También negociar
+507 Almacenamiento insuficiente
+508 Bucle detectado
+510 No Extendido
+511 Autenticación de red requerida
