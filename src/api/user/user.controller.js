@@ -86,12 +86,12 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
     const query = 'SELECT * FROM users WHERE email = ?;'
     const [rows, _] = await pool.query(query, [email])
 
-    if(!rows[0]) next(new ErrorHandler('Correo inválido', 400))
+    if(!rows[0]) return next(new ErrorHandler('Correo inválido', 400))
 
     const user = rows[0]
     const resetToken = await getResetPasswordToken(user.id)
 
-    const resetPasswordURL = `${req.protocol}://${req.get('host')}/password/reset/${resetToken}`
+    const resetPasswordURL = `${process.env.FRONTEND_HOST}/password/reset?token=${resetToken}`
     const message = `Su enlace de recuperación es: ${resetPasswordURL}\n\nSi no pidió este correo por favor ignórelo.`
     
     try {
@@ -157,10 +157,6 @@ export const getUserDetails = catchAsyncErrors(async (req, res, next) => {
 
 
 export const updateProfile = catchAsyncErrors(async (req, res, next) => {
-    const [isOk, field] = verifyRequiredFields(req.body, ['id'])
-
-    if(!isOk) return next(new ErrorHandler(`Por favor ingrese el campo: ${field}`, 400))
-
     const objParams = {
         name: req.body.name,
         lastname: req.body.lastname,
@@ -177,7 +173,7 @@ export const updateProfile = catchAsyncErrors(async (req, res, next) => {
     query = query.slice(0, query.length - 2)
     query += ' WHERE id = ?;'
 
-    const [_, __] = await pool.query(query, [...Object.values(objParams), req.body.id])
+    const [_, __] = await pool.query(query, [...Object.values(objParams), req.user.id])
 
     res.status(200).json({
         success: true,

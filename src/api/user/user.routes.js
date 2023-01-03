@@ -13,18 +13,18 @@ import { isAuthenticatedUser } from '../../middleware/auth'
 
 export const userRouter = Router()
 
-userRouter.route('/signup').post(signup)
+userRouter.route('/auth/signup').post(signup)
 
-userRouter.route('/signin').post(signin)
+userRouter.route('/auth/signin').post(signin)
 
-userRouter.route('/signout').get(signout)
+userRouter.route('/auth/signout').get(signout)
 
-userRouter.route('/password/forgot').post(forgotPassword)
+userRouter.route('/auth/password/forgot').post(forgotPassword)
 
-userRouter.route('/password/reset').patch(resetPassword)
+userRouter.route('/auth/password/reset').patch(resetPassword)
 
-userRouter.route('/me').get(isAuthenticatedUser, getUserDetails)
+userRouter.route('/user/me').get(isAuthenticatedUser, getUserDetails)
 
-userRouter.route('/me/update').put(isAuthenticatedUser, updateProfile)
+userRouter.route('/user/me/update').put(isAuthenticatedUser, updateProfile)
 
-userRouter.route('/password/update').patch(isAuthenticatedUser, updatePassword)
+userRouter.route('/user/password/update').patch(isAuthenticatedUser, updatePassword)

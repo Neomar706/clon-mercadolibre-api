@@ -4,11 +4,10 @@ export const sendToken = function(user, statusCode, res){
     const token = jwt.sign(
         { id: user.id },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRE_MIN * 60 * 1000 }
     )
 
     const options = {
-        expires: new Date(Date.now() + process.env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000),
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 * 60 * 60 * 1000 => 24horas
         httpOnly: true,
     }
 

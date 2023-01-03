@@ -5,8 +5,6 @@ import { pool } from '../config/database'
 
 
 export const isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
-    if(req.user) return next()
-
     const token = req.cookies['x-access-token']
 
     if(!token) return next(new ErrorHandler('Por favor inicie sesión', 401))
