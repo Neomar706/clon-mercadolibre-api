@@ -1,5 +1,4 @@
-// import dotenv from 'dotenv'
-// import path from 'path'
+import { v2 as cloudinary } from 'cloudinary'
 import { app } from './app'
 
 
@@ -10,7 +9,12 @@ process.on("uncaughtException", (err) => {
     process.exit(1)
 })
 
-// dotenv.config({ path: path.join(__dirname, '.env') })
+cloudinary.config({ 
+    cloud_name: process.env.CLOUDINARY_NAME, 
+    api_key: process.env.CLOUDINARY_API_KEY, 
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: process.env.CLOUDINARY_API_SECURE
+});
 
 const server = app.listen(app.get('port'), () => console.log(`Server listening on port: ${app.get('port')}`))
 

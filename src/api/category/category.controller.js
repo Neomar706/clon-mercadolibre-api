@@ -35,9 +35,7 @@ export const createCategory = catchAsyncErrors(async (req, res, next) => {
     if(!category_name) return next(new ErrorHandler('Por favor ingrese el campo: category_name', 400))
 
     const query = 'INSERT INTO categories (category) VALUES (?);'
-    const [_, __] = await pool.query(query, [category_name])
-
-    console.log(_)
+    await pool.query(query, [category_name])
 
     res.status(200).json({
         success: true,
@@ -52,7 +50,7 @@ export const deleteCategory = catchAsyncErrors(async (req, res, next) => {
     if(!id) return next(new ErrorHandler('Por favor ingrese el campo: id', 400))
 
     const query = 'DELETE FROM categories WHERE id = ?;'
-    const [_, __] = await pool.query(query, [id])
+    await pool.query(query, [id])
 
     res.status(200).json({
         success: true,
@@ -69,7 +67,7 @@ export const updateCategory = catchAsyncErrors(async (req, res, next) => {
     if(!category_name) return next(new ErrorHandler('Por favor ingrese el campo: category_name'))
 
     const query = 'UPDATE categories SET category = ? WHERE id = ?;'
-    const [_, __] = await pool.query(query, [category_name, id])
+    await pool.query(query, [category_name, id])
 
 
     res.status(200).json({

@@ -11,6 +11,8 @@ import { sessionMiddleware } from './middleware/session'
 /** Routes imports */
 import { userRouter } from './api/user/user.routes'
 import { categoryRouter } from './api/category/category.routes'
+import { articleRouter } from './api/article/article.routes'
+import { favoriteRouter } from './api/favorite/favorite.routes'
 
 
 dotenv.config({ path: path.join(__dirname, 'config', '.env') })
@@ -21,12 +23,12 @@ app.set('port', process.env.PORT || 5000)
 
 
 /** Middlewares */
-app.use(bodyParser.urlencoded({  extended: true }))
-app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(bodyParser.json({ limit: '60mb' }))
 app.use(cookieParser(process.env.SECRET_SESSION_KEY))
 process.env.NODE_ENV === 'development' && app.use(morgan('dev'))
 app.use(cors({ 
-    origin: 'http://localhost:5173',
+    origin: process.env.FRONTEND_HOST,
     credentials: true
 }))
 app.use(sessionMiddleware())
@@ -35,6 +37,8 @@ app.use(sessionMiddleware())
 /** Middlewares Routes */
 app.use('/api/v1', userRouter)
 app.use('/api/v1', categoryRouter)
+app.use('/api/v1', articleRouter)
+app.use('/api/v1', favoriteRouter)
 
 
 app.use(errorMiddleware)

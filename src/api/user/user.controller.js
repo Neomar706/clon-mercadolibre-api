@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import { catchAsyncErrors } from '../../middleware/catchAsyncErrors'
 import { ErrorHandler } from '../../utils/errorHandler'
 import { pool } from '../../config/database'
-import { verifyRequiredFields } from './helpers/verifyRequiredFields'
+import { verifyRequiredFields } from '../../utils/verifyRequiredFields'
 import { encryptPassword } from './helpers/encryptPassword'
 import { matchPassword } from './helpers/matchPassword'
 import { sendToken } from './helpers/sendToken'
@@ -27,7 +27,7 @@ export const signup = catchAsyncErrors(async(req, res, next) => {
     if(rows[0]) return next(new ErrorHandler('El usuario ya se encuentra registrado', 401))
 
     const _query = 'INSERT INTO users (name, lastname, username, dni, email, password, phone) VALUES (?, ?, ?, ?, ?, ?, ?);'
-    const [__, ___] = await pool.query(
+    await pool.query(
         _query,
         [objCopy.name, objCopy.lastname, objCopy.username, objCopy.dni, objCopy.email, objCopy.password, objCopy.phone]
     )
@@ -107,7 +107,7 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
         })
     } catch (err) {
         const query = 'UPDATE users SET reset_pwd_token = ?, reset_pwd_expire = ?'
-        const [_, __] = await pool.query(query, [null, null])
+        await pool.query(query, [null, null])
         
         return next(new ErrorHandler(err.message, 500))
     }
@@ -173,7 +173,7 @@ export const updateProfile = catchAsyncErrors(async (req, res, next) => {
     query = query.slice(0, query.length - 2)
     query += ' WHERE id = ?;'
 
-    const [_, __] = await pool.query(query, [...Object.values(objParams), req.user.id])
+    await pool.query(query, [...Object.values(objParams), req.user.id])
 
     res.status(200).json({
         success: true,
