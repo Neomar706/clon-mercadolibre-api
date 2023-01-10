@@ -82,12 +82,13 @@ export const deleteArticle = catchAsyncErrors(async (req, res, next) => {
 
 
 export const updateArticle = catchAsyncErrors(async (req, res, next) => {
+    const userId = req.user.id
     const articleId = req.query.id
 
     if(!articleId) return next(new ErrorHandler('Por favor ingrese el campo: id'))
 
-    const query = 'SELECT id FROM articles WHERE id = ?;'
-    const [rows, _] = await pool.query(query, [articleId])
+    const query = 'SELECT id FROM articles WHERE id = ? AND user_id = ?;'
+    const [rows, _] = await pool.query(query, [articleId, userId])
 
     if(!rows[0]) return next(new ErrorHandler('No se encontró ningún artículo', 400))
 
