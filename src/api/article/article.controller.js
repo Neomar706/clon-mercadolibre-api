@@ -29,8 +29,9 @@ export const createArticle = catchAsyncErrors(async (req, res, next) => {
         })
     }
 
-    const query = `INSERT INTO articles (user_id, title, brand, model, is_new, stock, price, shipment_free, days_warranty, description)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+    const fields = '(user_id, title, brand, model, is_new, stock, price, shipment_free, days_warranty, description)'
+    const values = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    const query = `INSERT INTO articles ${fields} VALUES ${values};`
     const [result, _] = await pool.query(query, [id, title, brand, model, is_new, stock, price, shipment_free, days_warranty, description])
     const article_id = result.insertId
 

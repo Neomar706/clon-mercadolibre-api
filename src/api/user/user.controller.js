@@ -166,7 +166,8 @@ export const updateProfile = catchAsyncErrors(async (req, res, next) => {
         phone: req.body.phone
     }
 
-    for(let key in objParams) if(objParams[key] === undefined) delete objParams[key]
+    for(let key in objParams)
+        if(objParams[key] === undefined || objParams[key] === '') delete objParams[key]
 
     let query = 'UPDATE users SET '
     Object.keys(objParams).forEach(elem => query += `${elem} = ?, `)

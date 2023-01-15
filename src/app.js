@@ -13,6 +13,7 @@ import { userRouter } from './api/user/user.routes'
 import { categoryRouter } from './api/category/category.routes'
 import { articleRouter } from './api/article/article.routes'
 import { favoriteRouter } from './api/favorite/favorite.routes'
+import { addressRouter } from './api/address/address.routes'
 
 
 dotenv.config({ path: path.join(__dirname, 'config', '.env') })
@@ -39,6 +40,7 @@ app.use('/api/v1', userRouter)
 app.use('/api/v1', categoryRouter)
 app.use('/api/v1', articleRouter)
 app.use('/api/v1', favoriteRouter)
+app.use('/api/v1', addressRouter)
 
 
 app.use(errorMiddleware)
