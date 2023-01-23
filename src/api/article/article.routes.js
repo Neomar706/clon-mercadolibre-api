@@ -1,6 +1,13 @@
 import { Router } from 'express'
 
-import { createArticle, deleteArticle, getArticles, updateArticle, togglePauseArticle } from './article.controller'
+import {
+    createArticle,
+    deleteArticle,
+    getArticles,
+    updateArticle,
+    togglePauseArticle,
+    searchArticleFilter
+} from './article.controller'
 import { isAuthenticatedUser } from '../../middleware/auth'
 
 
@@ -15,3 +22,5 @@ articleRouter.route('/article/update').put(isAuthenticatedUser, updateArticle)
 articleRouter.route('/articles').get(getArticles)
 
 articleRouter.route('/article/toggle-pause').patch(isAuthenticatedUser, togglePauseArticle)
+
+articleRouter.route('/article/search').get(searchArticleFilter)

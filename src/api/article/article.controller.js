@@ -4,6 +4,7 @@ import { pool } from '../../config/database'
 import { catchAsyncErrors } from '../../middleware/catchAsyncErrors'
 import { ErrorHandler } from '../../utils/errorHandler'
 import { verifyRequiredFields } from '../../utils/verifyRequiredFields'
+import { ArticleFeatures } from './helpers/articleFeatures'
 
 
 export const createArticle = catchAsyncErrors(async (req, res, next) => {
@@ -183,7 +184,7 @@ const getArticlesRecursive = async function(req, res, next){
     if(!category) return () => next(new ErrorHandler('No se encontró ningún artículo', 404))
 
     const _query = `
-        SELECT a.id AS article_id, a.title, a.price, a.shipment_free, p.id AS img_id, p.article_id AS img_article_id, p.link AS img_url, c.category
+        SELECT a.id, a.title, a.price, a.shipment_free, CONCAT('[', GROUP_CONCAT(CONCAT('{"id": ', p.id, ',"url": "', p.link, '"}')), ']') images
         FROM articles a
         INNER JOIN pictures p
         ON a.id = p.article_id
@@ -192,12 +193,19 @@ const getArticlesRecursive = async function(req, res, next){
         INNER JOIN categories c
         ON ac.category_id = c.id
         WHERE c.category = (?) AND a.is_paused = false
-        ORDER BY article_id ASC;
+        GROUP BY a.id
+        ORDER BY a.id
+        LIMIT ?;
     `
-    const [result, ___] = await pool.query(_query, [category])
+    
+    const ARTICLES_LIMIT = 15
+    const [result, ___] = await pool.query(_query, [category, ARTICLES_LIMIT])
 
     if(!result.length) return await getArticlesRecursive(req, res, next)
-    return result
+    return {
+        category, 
+        articles: result
+    }
 }
 
 const obtainRows = async function(req, res, next){
@@ -205,32 +213,14 @@ const obtainRows = async function(req, res, next){
 
     if(typeof result === 'function') return result()
 
-    const ret = result.reduce((acc, current) => {
-        const info = {
-            id: current.article_id,
-            title: current.title,
-            price: current.price,
-            shipment_free: Boolean(current.shipment_free),
-            images: []
-        }
-
-        const images = {
-            id: current.img_id,
-            url: current.img_url
-        }
-
-        if(!acc.some(elem => elem.id === info.id)) acc.push(info)
-        acc.forEach(elem => elem.id === current.img_article_id && elem.images.push(images))
-
-        return acc
-    }, [])
+    result.articles = result.articles.map(art => ({
+        ...art,
+        images: JSON.parse(art.images.replaceAll('\"', '"'))
+    }))
 
     res.status(200).json({
         success: true,
-        result: {
-            category: result[0].category,
-            articles: ret
-        },
+        result
     })
 }
 
@@ -257,5 +247,34 @@ export const togglePauseArticle = catchAsyncErrors(async (req, res, next) => {
         message: !isPaused
             ? 'Artículo pausado con exito'
             : 'Artículo despausado con exito'
+    })
+})
+
+
+export const searchArticleFilter = catchAsyncErrors(async (req, res, next) => {
+    const { keyword, state, shipment_free, category_id, news, price, page, limit } = req.query
+
+    const queryParams = {}
+    keyword         ? queryParams['keyword']        = keyword                   : null
+    state           ? queryParams['state']          = state                     : null
+    news            ? queryParams['news']           = news === 'true'           : null
+    shipment_free   ? queryParams['shipment_free']  = shipment_free === 'true'  : null
+    price           ? queryParams['price']          = price                     : null
+    category_id     ? queryParams['category_id']    = Number(category_id)       : null
+    page            ? queryParams['page']           = Number(page)              : null
+    limit           ? queryParams['limit']          = Number(limit)             : null
+
+
+    const query = new ArticleFeatures(queryParams)
+        .search()
+        .filter()
+        .paginate()
+
+    res.status(200).json({
+        success: true,
+        results: {
+            articles_quantity: await query.getQuantity(),
+            articles: await query.run()
+        }
     })
 })
