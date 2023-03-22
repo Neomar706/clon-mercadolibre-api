@@ -1,20 +1,26 @@
 import { v2 as cloudinary } from 'cloudinary'
-import { pool } from '../../config/database'
+import { PrismaClient } from '@prisma/client'
 
 import { catchAsyncErrors } from '../../middleware/catchAsyncErrors'
 import { ErrorHandler } from '../../utils/errorHandler'
 import { verifyRequiredFields } from '../../utils/verifyRequiredFields'
 import { ArticleFeatures } from './helpers/articleFeatures'
+import { deleteFromDBAndCloudinary } from './helpers/deleteFromDBAndCloudinary'
+import { withoutPicturesOfDatabase } from './helpers/withoutPicturesOfDatabase'
+import { randomCategory } from './helpers/randomCategory'
 
+
+const prisma = new PrismaClient()
 
 export const createArticle = catchAsyncErrors(async (req, res, next) => {
-    const requiredFields = ['title', 'brand', 'model', 'is_new', 'stock', 'price', 'shipment_free', 'days_warranty', 'description', 'images', 'categories']
+    const requiredFields = ['title', 'brand', 'model', 'isNew', 'stock', 'price', 'shipmentFree', 'daysWarranty', 'description', 'images', 'categories']
     const [isOk, field] = verifyRequiredFields(req.body, requiredFields)
 
     if(!isOk) return next(new ErrorHandler(`Por favor ingrese el campo: ${field}`))
 
-    const { id } = req.user
-    const { title, brand, model, is_new, stock, price, shipment_free, days_warranty, description } = req.body
+
+    const { id: userId } = req.user
+    const { title, brand, model, isNew, stock, price, shipmentFree, daysWarranty, description } = req.body
     const { images, categories } = req.body
 
     const imagesLinks = []
@@ -25,34 +31,28 @@ export const createArticle = catchAsyncErrors(async (req, res, next) => {
         })
 
         imagesLinks.push({
-            public_id: result.public_id,
+            publicId: result.public_id,
             link: result.secure_url
         })
     }
 
-    const fields = '(user_id, title, brand, model, is_new, stock, price, shipment_free, days_warranty, description)'
-    const values = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    const query = `INSERT INTO articles ${fields} VALUES ${values};`
-    const [result, _] = await pool.query(query, [id, title, brand, model, is_new, stock, price, shipment_free, days_warranty, description])
-    const article_id = result.insertId
-
-    const queryDeleteArticle = 'DELETE FROM articles WHERE id = ?;'
-
-    try {
-        const sql = 'INSERT INTO pictures (article_id, public_id, link) VALUES (?, ?, ?);'
-        await Promise.all(imagesLinks.map(image => pool.query(sql, [article_id, image.public_id, image.link])))
-    } catch (err) {
-        await pool.query(queryDeleteArticle, [article_id])
-        return next(new ErrorHandler(err.message, 500))
-    }
-
-    try {
-        const sql = 'INSERT INTO articles_categories (article_id, category_id) VALUES (?, ?);'
-        await Promise.all(categories.map(category => pool.query(sql, [article_id, category])))
-    } catch (err) {
-        await pool.query(queryDeleteArticle, [article_id])
-        return next(new ErrorHandler(err.message, 500))
-    }
+    await prisma.article.create({
+        data: {
+            userId,
+            title,
+            brand,
+            model,
+            isNew,
+            isPaused: false,
+            stock,
+            price,
+            shipmentFree,
+            daysWarranty,
+            description,
+            pictures: { create: imagesLinks },
+            categories: { connect: categories.map(id => ({ id })) }
+        }
+    })
     
     res.status(200).json({
         success: true,
@@ -62,19 +62,35 @@ export const createArticle = catchAsyncErrors(async (req, res, next) => {
 
 
 export const deleteArticle = catchAsyncErrors(async (req, res, next) => {
-    const articleId = req.query.id
-    const userId = req.user.id
+    const articleId = Number(req.query.id)
+    const userId = Number(req.user.id)
 
-    if(!articleId) return next(new ErrorHandler('Por favor ingrese el campo: id'))
+    if(!articleId) return next(new ErrorHandler('Por favor ingrese el campo: id', 400))
 
-    const query = 'SELECT public_id FROM pictures WHERE article_id = ?;'
-    const [rows, _] = await pool.query(query, [articleId])
+    const finded = await prisma.article.count({
+        where: {
+            id: articleId,
+            userId
+        }
+    })
 
-    const _query = 'DELETE FROM articles WHERE id = ? AND user_id = ?;'
-    const [result, __] = await pool.query(_query, [articleId, userId])
+    if(!finded) return next(new ErrorHandler('No se encontró ningún artículo', 404))
 
-    if(!result.affectedRows) return next(new ErrorHandler('No se encontró ningún artículo', 404))
-    await Promise.all(rows.map(row => cloudinary.uploader.destroy(row.public_id)))
+    const pictures = await prisma.picture.findMany({
+        where: { articleId },
+        select: { publicId: true }
+    })
+
+
+    try {
+        await prisma.article.delete({
+            where: { id: articleId }
+        })
+
+        await Promise.all(pictures.map(({ publicId }) => cloudinary.uploader.destroy(publicId)))
+    } catch (err) {
+        next(err)
+    }
     
     res.status(200).json({
         success: true,
@@ -84,75 +100,116 @@ export const deleteArticle = catchAsyncErrors(async (req, res, next) => {
 
 
 export const updateArticle = catchAsyncErrors(async (req, res, next) => {
-    const userId = req.user.id
-    const articleId = req.query.id
+    const userId = Number(req.user.id)
+    const articleId = Number(req.query.id)
 
-    if(!articleId) return next(new ErrorHandler('Por favor ingrese el campo: id'))
+    if(!articleId)
+        return next(new ErrorHandler('Por favor ingrese el campo: id'))
 
-    const query = 'SELECT id FROM articles WHERE id = ? AND user_id = ?;'
-    const [rows, _] = await pool.query(query, [articleId, userId])
-
-    if(!rows[0]) return next(new ErrorHandler('No se encontró ningún artículo', 400))
-
-    const objParams = {
-        title: req.body.title,
-        brand: req.body.brand,
-        model: req.body.model,
-        is_new: req.body.is_new,
-        stock: req.body.stock,
-        price: req.body.price,
-        shipment_free: req.body.shipment_free,
-        days_warranty: req.body.days_warranty,
-        description: req.body.description
-    }
-
-    for(let key in objParams) if(objParams[key] === undefined) delete objParams[key]
-
-    let _query = 'UPDATE articles SET '
-    Object.keys(objParams).forEach(elem => _query += `${elem} = ?, `)
-    _query = _query.slice(0, _query.length - 2)
-    _query += ' WHERE id = ?;'
-
-    const [result, __] = await pool.query(_query, [...Object.values(objParams), articleId])
-
-    if(!result.affectedRows) return next(new ErrorHandler('No se pudo actualizar el artículo'))
-
-    if(req.body.images){
-        const query = 'SELECT public_id FROM pictures WHERE article_id = ?;'
-        const [rows, _] = await pool.query(query, [articleId])
-        await Promise.all(rows.map(row => cloudinary.uploader.destroy(row.public_id)))
-
-        const imagesLinks = []
-        const images = req.body.images
-        for(let i = 0; i < images.length; i++){
-            const result = await cloudinary.uploader.upload(images[i], {
-                folder: 'articles'
-            })
-
-            imagesLinks.push({
-                public_id: result.public_id,
-                link: result.secure_url
-            })
+    const finded = await prisma.article.count({
+        where: {
+            id: articleId,
+            userId: userId
         }
+    })
 
-        const _query = 'DELETE FROM pictures WHERE article_id = ?;'
-        const [result, __] = await pool.query(_query, [articleId])
+    if(!finded)
+        return next(new ErrorHandler('No se encontró ningún artículo', 404))
+    
+    const obj = {}
+    req.body.title          ? obj['title'] = req.body.title                 : null
+    req.body.brand          ? obj['brand'] = req.body.brand                 : null
+    req.body.model          ? obj['model'] = req.body.model                 : null
+    req.body.is_new         ? obj['isNew'] = req.body.is_new                : null
+    req.body.is_paused      ? obj['isPaused'] = req.body.is_paused          : null
+    req.body.stock          ? obj['stock'] = req.body.stock                 : null
+    req.body.price          ? obj['price'] = req.body.price                 : null
+    req.body.shipment_free  ? obj['shipmentFree'] = req.body.shipment_free  : null
+    req.body.days_warranty  ? obj['daysWarranty'] = req.body.days_warranty  : null
+    req.body.description    ? obj['description'] = req.body.description     : null
+    req.body.pictures       ? obj['pictures'] = req.body.pictures           : null
+    req.body.categories     ? obj['categories'] = req.body.categories       : null
+
+
+    const imagesLinks = []
+
+    if(obj.pictures){
+        const pictures = await prisma.picture.findMany({
+            where: {
+                articleId
+            },
+            select: {
+                link: true
+            }
+        })
+
+        let pictures4Delete = pictures.filter(({ link }) => !obj.pictures.includes(link))
+        pictures4Delete = pictures4Delete.map(({ link }) => link)
         
-        if(result.affectedRows){
-            const query = 'INSERT INTO pictures (article_id, public_id, link) VALUES (?, ?, ?);'
-            await Promise.all(imagesLinks.map(image => pool.query(query, [articleId, image.public_id, image.link])))
+        deleteFromDBAndCloudinary(prisma.picture, pictures4Delete, next)        
+
+        const filteredPictures = withoutPicturesOfDatabase(obj.pictures)
+
+        for(let i = 0; i < filteredPictures.length; i++){
+            try {
+                const result = await cloudinary.uploader.upload(filteredPictures[i], {
+                    folder: 'articles'
+                })
+                imagesLinks.push({
+                    publicId: result.public_id,
+                    link: result.secure_url
+                })
+            } catch (err) {
+                next(err)
+            }
         }
     }
 
-    if(req.body.categories){
-        const query = 'DELETE FROM articles_categories WHERE article_id = ?;'
-        const [result, _] = await pool.query(query, [articleId])
+    const pictures = await prisma.picture.findMany({
+        where: { articleId },
+        select: { publicId: true }
+    })
 
-        const categories = req.body.categories
-        if(result.affectedRows){
-            const _query = 'INSERT INTO articles_categories (article_id, category_id) VALUES (?, ?);'
-            await Promise.all(categories.map(category => pool.query(_query, [articleId, category])))
+    try {
+        const data = obj
+
+        if(imagesLinks.length)
+            data.pictures = {
+                create: imagesLinks
+            }
+
+
+        if(obj.categories?.length){
+
+            const categories = await prisma.category.findMany({
+                where: {
+                    articles: {
+                        some: {
+                            id: articleId,
+                        }
+                    }
+                },
+                select: {
+                    id: true
+                }
+            })
+
+            data.categories = {
+                disconnect: categories,
+                connect: obj.categories.map(id => ({ id }))
+            }
         }
+
+        await prisma.article.update({
+            where: {
+                id: articleId,
+            },
+            data
+        })
+
+        await Promise.all(pictures.map(({ publicId }) => cloudinary.uploader.destroy(publicId)))
+    } catch (err) {
+        await Promise.all(imagesLinks.map(({ publicId }) => cloudinary.uploader.destroy(publicId)))
     }
 
     res.status(200).json({
@@ -161,90 +218,176 @@ export const updateArticle = catchAsyncErrors(async (req, res, next) => {
     })
 })
 
+
 const getArticlesRecursive = async function(req, res, next){
     let distinct_of
     if(!req.query.distinct_of) distinct_of = ['']
     else distinct_of = JSON.parse(decodeURIComponent(req.query.distinct_of))
 
-    const sql = 'SELECT DISTINCT(c.category) FROM categories c, articles_categories ac WHERE c.id = ac.category_id;'
-    const [rows, _] = await pool.query(sql)
-    const distinctCategories = rows.map(row => row.category)
+    const distinctCategories = (
+        await prisma.category.findMany({
+            where: {     
+                articles: {
+                    some: {} // Don't remove
+                }
+            },
+            select: {
+                category: true
+            }
+        })
+    )
+    .map(({ category }) => category)
 
-    const hasError = distinctCategories.every(elem => distinct_of.indexOf(elem) !== -1)
+    const hasError = distinctCategories.every(elem => distinct_of.includes(elem))
     if(hasError) return () => next(new ErrorHandler('No se encontró ningún artículo', 404))
-    
-    let query = 'SELECT category FROM categories WHERE category NOT IN ('
-    distinct_of.forEach(() => query += '?, ')
-    query = query.slice(0, query.length - 2)
-    query += ') ORDER BY RAND() LIMIT 1;'
 
-    const [_rows, __] = await pool.query(query, [...distinct_of])
-    const category = _rows[0]?.category
+    const category = await randomCategory(prisma.category, distinct_of)
 
-    if(!category) return () => next(new ErrorHandler('No se encontró ningún artículo', 404))
+    let articles = await prisma.article.findMany({
+        where: {
+            categories: {
+                some: {
+                    category
+                }
+            },
+            isPaused: false
+        },
+        select: {
+            id: true,
+            title: true,
+            price: true,
+            shipmentFree: true,
+            pictures: {
+                select: {
+                    id: true,
+                    link: true,
+                }
+            }
+        }
+    })
 
-    const _query = `
-        SELECT a.id, a.title, a.price, a.shipment_free, CONCAT('[', GROUP_CONCAT(CONCAT('{"id": ', p.id, ',"url": "', p.link, '"}')), ']') images
-        FROM articles a
-        INNER JOIN pictures p
-        ON a.id = p.article_id
-        INNER JOIN articles_categories ac
-        ON a.id = ac.article_id
-        INNER JOIN categories c
-        ON ac.category_id = c.id
-        WHERE c.category = (?) AND a.is_paused = false
-        GROUP BY a.id
-        ORDER BY a.id
-        LIMIT ?;
-    `
-    
-    const ARTICLES_LIMIT = 15
-    const [result, ___] = await pool.query(_query, [category, ARTICLES_LIMIT])
+    if(!articles.length) return await getArticlesRecursive(req, res, next)
 
-    if(!result.length) return await getArticlesRecursive(req, res, next)
+    if(req.query.userId){
+        const favorites = (
+            await prisma.favorite.findMany({
+                where: { userId: Number(req.query.userId) },
+                select: { articleId: true }
+            })
+        )
+        .map(({ articleId }) => articleId)
+
+        articles = articles.map(article => ({
+            ...article,
+            isFavorite: favorites.includes(article.id) ? true : false 
+        }))
+    }
+
     return {
         category, 
-        articles: result
+        articles
     }
 }
 
-const obtainRows = async function(req, res, next){
+
+export const getArticles = catchAsyncErrors(async (req, res, next) => {
     const result = await getArticlesRecursive(req, res, next)
 
     if(typeof result === 'function') return result()
-
-    result.articles = result.articles.map(art => ({
-        ...art,
-        images: JSON.parse(art.images.replaceAll('\"', '"'))
-    }))
 
     res.status(200).json({
         success: true,
         result
     })
-}
+})
 
-export const getArticles = catchAsyncErrors(obtainRows)
+
+export const getArticlesByUserId = catchAsyncErrors(async (req, res, next) => {
+    const userId = Number(req.query.userId)
+    const limit = Number(req.query.limit) || 12
+    const distinctId = Number(req.query.distinctId) || 0
+
+    if(!userId) return next(new ErrorHandler('Por favor ingrese el campo: userId'))
+
+    let articles = await prisma.article.findMany({
+        where: {
+            id: { 
+                not: { 
+                    equals: distinctId
+                } 
+            },
+            userId,
+            isPaused: false
+        },
+        select: {
+            id: true,
+            title: true,
+            price: true,
+            shipmentFree: true,
+            pictures: {
+                select: {
+                    id: true,
+                    link: true,
+                }
+            }
+        },
+        take: limit
+    })
+
+    if(!articles.length) return next(new ErrorHandler('No se encontraron artículos', 404))
+
+
+    const favorites = (
+        await prisma.favorite.findMany({
+            where: { userId },
+            select: { articleId: true }
+        })
+    )
+    .map(({ articleId }) => articleId)
+
+    articles = articles.map(article => ({
+        ...article,
+        isFavorite: favorites.includes(article.id) ? true : false 
+    }))
+
+
+    res.status(200).json({
+        success: true,
+        results: articles
+    })
+})
 
 
 export const togglePauseArticle = catchAsyncErrors(async (req, res, next) => {
     const userId = req.user.id
-    const articleId = req.query.article_id
+    const articleId = Number(req.query.article_id)
 
-    if(!articleId) return next(new ErrorHandler('Por favor ingrese el campo: article_id', 400))
+    if(!articleId) 
+        return next(new ErrorHandler('Por favor ingrese el campo: article_id', 400))
 
-    const query = 'SELECT is_paused FROM articles WHERE id = ? AND user_id = ?;'
-    const [rows, _] = await pool.query(query, [articleId, userId])
 
-    if(!rows[0]) return next(new ErrorHandler('No se encontró ningún artículo', 404))
-    const isPaused = rows[0].is_paused
+    const article = await prisma.article.findFirst({
+        where: {
+            id: articleId,
+            userId
+        },
+        select: {
+            _count: true,
+            isPaused: true
+        }
+    })
 
-    const _query = 'UPDATE articles SET is_paused = ? WHERE id = ?;'
-    await pool.query(_query, [!isPaused, articleId])
+    if(!article)
+        return next(new ErrorHandler('No se encontró ningún artículo', 404))
+
+    await prisma.article.update({
+        where: { id: articleId },
+        data: { isPaused: !article.isPaused }
+    })
 
     res.status(200).json({
         success: true,
-        message: !isPaused
+        message: !article.isPaused
             ? 'Artículo pausado con exito'
             : 'Artículo despausado con exito'
     })
@@ -252,18 +395,18 @@ export const togglePauseArticle = catchAsyncErrors(async (req, res, next) => {
 
 
 export const searchArticleFilter = catchAsyncErrors(async (req, res, next) => {
-    const { keyword, state, shipment_free, category_id, news, price, page, limit } = req.query
+    const { keyword, state, shipmentFree, category, news, price, page, limit } = req.query
 
     const queryParams = {}
-    keyword         ? queryParams['keyword']        = keyword                   : null
-    state           ? queryParams['state']          = state                     : null
-    news            ? queryParams['news']           = news === 'true'           : null
-    shipment_free   ? queryParams['shipment_free']  = shipment_free === 'true'  : null
-    price           ? queryParams['price']          = price                     : null
-    category_id     ? queryParams['category_id']    = Number(category_id)       : null
-    page            ? queryParams['page']           = Number(page)              : null
-    limit           ? queryParams['limit']          = Number(limit)             : null
-
+    keyword      ? queryParams['keyword']      = keyword                        : null
+    state        ? queryParams['state']        = state                          : null
+    news         ? queryParams['news']         = news === 'true' ? true : false : null
+    shipmentFree ? queryParams['shipmentFree'] = shipmentFree === 'true'        : null
+    price        ? queryParams['price']        = price                          : null
+    category     ? queryParams['category']     = category                       : null
+    page         ? queryParams['page']         = Number(page)                   : null
+    limit        ? queryParams['limit']        = Number(limit)                  : null
+    console.log(JSON.stringify(req.query, null, 4))
 
     const query = new ArticleFeatures(queryParams)
         .search()
@@ -272,9 +415,78 @@ export const searchArticleFilter = catchAsyncErrors(async (req, res, next) => {
 
     res.status(200).json({
         success: true,
-        results: {
-            articles_quantity: await query.getQuantity(),
-            articles: await query.run()
+        result: {
+            articlesQuantity: await query.getQuantity(prisma.article),
+            articles: await query.run(prisma.article, prisma.favorite, req.query.userId)
         }
+    })
+})
+
+
+export const articleDetails = catchAsyncErrors(async (req, res, next) => {
+    const articleId = Number(req.query.id)
+
+    if(!articleId) return next(new ErrorHandler('Por favor ingrese el campo: id'))
+
+    const article = await prisma.article.findUnique({
+        where: { id: articleId },
+        include: {
+            pictures: {
+                select: {
+                    id: true,
+                    link: true
+                }
+            },
+            user: {
+                select: {
+                    addresses: {
+                        where: {
+                            currentAddress: true
+                        },
+                        select: {
+                            id: true,
+                            state: true,
+                            city: true,
+                            parish: true
+                        }
+                    },
+                }
+            },
+            questionInfo: {
+                select: {
+                    id: true,
+                    questions: {
+                        select: {
+                            id: true,
+                            question: true,
+                            questionDate: true,
+                            answer: true,
+                            answerDate: true
+                        }
+                    }
+                }
+            },
+            purchases: true
+        }
+    })
+
+    const salesCount = await prisma.purchase.count({
+        where: { userId: article.userId }
+    })
+
+    article.user.salesAchieved = salesCount
+
+    article.isFavorite = (
+        await prisma.favorite.findMany({
+            where: { userId: Number(req.query.userId) || 0 },
+            select: { articleId: true }
+        })
+    )
+    .map(({ articleId }) => articleId)
+    .includes(article.id) ? true : false
+        
+    res.status(200).json({
+        success: true,
+        result: article
     })
 })

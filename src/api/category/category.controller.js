@@ -1,30 +1,36 @@
-import { pool } from '../../config/database'
+import { PrismaClient } from '@prisma/client'
+
 import { catchAsyncErrors } from '../../middleware/catchAsyncErrors'
 import { ErrorHandler } from '../../utils/errorHandler'
 
+const prisma = new PrismaClient()
 
 export const getCategories = catchAsyncErrors(async (req, res, next) => {
-    const query = 'SELECT * FROM categories;'
-    const [rows, _] = await pool.query(query)
+    const categories = await prisma.category.findMany()
 
     res.status(200).json({
         success: true,
-        results: rows
+        results: categories
     })
 })
 
 
 export const getCategory = catchAsyncErrors(async (req, res, next) => {
-    const { id } = req.query
+    const id = Number(req.query.id)
 
-    if(!id) return next(new ErrorHandler('Por favor ingrese el campo: id', 400))
+    if(!id) 
+        return next(new ErrorHandler('Por favor ingrese el campo: id', 400))
 
-    const query = 'SELECT * FROM categories WHERE id = ?;'
-    const [rows, _] = await pool.query(query, [id])
+    const category = await prisma.category.findUnique({
+        where: { id }
+    })
+
+    if(!category)
+        return next(new ErrorHandler('No se encontro ninguna categoría', 404))
 
     res.status(200).json({
         success: true,
-        result: rows[0]
+        result: category
     })
 })
 
@@ -32,10 +38,14 @@ export const getCategory = catchAsyncErrors(async (req, res, next) => {
 export const createCategory = catchAsyncErrors(async (req, res, next) => {
     const { category_name } = req.body
 
-    if(!category_name) return next(new ErrorHandler('Por favor ingrese el campo: category_name', 400))
+    if(!category_name) 
+        return next(new ErrorHandler('Por favor ingrese el campo: category_name', 400))
 
-    const query = 'INSERT INTO categories (category) VALUES (?);'
-    await pool.query(query, [category_name])
+    await prisma.category.create({
+        data: {
+            category: category_name
+        }
+    })
 
     res.status(200).json({
         success: true,
@@ -45,12 +55,14 @@ export const createCategory = catchAsyncErrors(async (req, res, next) => {
 
 
 export const deleteCategory = catchAsyncErrors(async (req, res, next) => {
-    const { id } = req.query
+    const id = Number(req.query.id)
 
-    if(!id) return next(new ErrorHandler('Por favor ingrese el campo: id', 400))
+    if(!id)
+        return next(new ErrorHandler('Por favor ingrese el campo: id', 400))
 
-    const query = 'DELETE FROM categories WHERE id = ?;'
-    await pool.query(query, [id])
+    await prisma.category.delete({
+        where: { id }
+    })
 
     res.status(200).json({
         success: true,
@@ -60,15 +72,20 @@ export const deleteCategory = catchAsyncErrors(async (req, res, next) => {
 
 
 export const updateCategory = catchAsyncErrors(async (req, res, next) => {
-    const { id } = req.query
+    const id = Number(req.query.id)
     const { category_name } = req.body
 
-    if(!id) return next(new ErrorHandler('Por favor ingrese el campo: id'))
-    if(!category_name) return next(new ErrorHandler('Por favor ingrese el campo: category_name'))
+    if(!id)
+        return next(new ErrorHandler('Por favor ingrese el campo: id'))
 
-    const query = 'UPDATE categories SET category = ? WHERE id = ?;'
-    await pool.query(query, [category_name, id])
+    if(!category_name)
+        return next(new ErrorHandler('Por favor ingrese el campo: category_name'))
 
+    
+    await prisma.category.update({
+        where: { id },
+        data: { category: category_name }
+    })
 
     res.status(200).json({
         success: true,

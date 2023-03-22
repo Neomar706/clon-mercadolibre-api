@@ -1,6 +1,7 @@
+import { PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
-import { pool } from "../../../config/database"
 
+const prisma = new PrismaClient()
 
 export const getResetPasswordToken = async function(userId){
 
@@ -13,12 +14,13 @@ export const getResetPasswordToken = async function(userId){
 
     const resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000) // new Date(Date.now() + 15min)
 
-    const [rows, _] = await pool.query(
-        'UPDATE users SET reset_pwd_token = ?, reset_pwd_expire = ? WHERE id = ?;',
-        [resetPasswordToken, resetPasswordExpire, userId]
-    )
-
-    console.log(rows)
+    await prisma.user.update({
+        where: { id: userId },
+        data: {
+            resetPwdToken: resetPasswordToken,
+            resetPwdExpire: resetPasswordExpire
+        }
+    })
 
     return resetToken
 }

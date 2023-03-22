@@ -1,14 +1,16 @@
 import crypto from 'crypto'
+import { PrismaClient } from '@prisma/client'
 
 import { catchAsyncErrors } from '../../middleware/catchAsyncErrors'
 import { ErrorHandler } from '../../utils/errorHandler'
-import { pool } from '../../config/database'
 import { verifyRequiredFields } from '../../utils/verifyRequiredFields'
 import { encryptPassword } from './helpers/encryptPassword'
 import { matchPassword } from './helpers/matchPassword'
 import { sendToken } from './helpers/sendToken'
 import { getResetPasswordToken } from './helpers/getResetPasswordToken'
 import { sendEmail } from './helpers/sendEmail'
+
+const prisma = new PrismaClient()
 
 export const signup = catchAsyncErrors(async(req, res, next) => {
     const requiredFields = ['name', 'lastname', 'username', 'dni', 'email', 'password', 'phone']
@@ -21,22 +23,38 @@ export const signup = catchAsyncErrors(async(req, res, next) => {
     delete objCopy.password
     objCopy.password = await encryptPassword(req.body.password)
 
-    const query = 'SELECT * FROM users WHERE username = ? OR email = ?;'
-    const [rows, _] = await pool.query(query, [objCopy.username, objCopy.email])
+    const user = await prisma.user.findFirst({
+        where: {
+            OR: [{
+                username: {
+                    equals: objCopy.username
+                }
+            }, {
+                email: {
+                    equals: objCopy.email
+                }
+            }]
+        }
+    })
 
-    if(rows[0]) return next(new ErrorHandler('El usuario ya se encuentra registrado', 401))
-
-    const _query = 'INSERT INTO users (name, lastname, username, dni, email, password, phone) VALUES (?, ?, ?, ?, ?, ?, ?);'
-    await pool.query(
-        _query,
-        [objCopy.name, objCopy.lastname, objCopy.username, objCopy.dni, objCopy.email, objCopy.password, objCopy.phone]
-    )
+    if(user) return next(new ErrorHandler('El usuario ya se encuentra registrado', 401))
+    
+    await prisma.user.create({
+        data: {
+            name: objCopy.name,
+            lastname: objCopy.lastname,
+            username: objCopy.username,
+            dni: objCopy.dni,
+            email: objCopy.email,
+            password: objCopy.password,
+            phone: objCopy.phone
+        }
+    })
 
     res.status(200).json({
         success: true,
         message: 'Usuario registrado con exito'
     })
-
 })
 
 
@@ -47,19 +65,45 @@ export const signin = catchAsyncErrors(async (req, res, next) => {
 
     if(!isOk) return next(new ErrorHandler(`Por favor ingrese el campo: ${field}`, 400))
 
-    const query = 'SELECT * FROM users WHERE username = ? OR email = ?;'
-    const [rows, _] = await pool.query(query, [username, username])
+    const user = await prisma.user.findFirst({
+        where: {
+            OR: [{
+                username: {
+                    equals: username
+                }
+            }, {
+                email: {
+                    equals: username
+                }
+            }]
+        },
+        include: {
+            addresses: {
+                where: {
+                    currentAddress: true
+                },
+                select: {
+                    id: true,
+                    state: true,
+                    city: true,
+                    parish: true,
+                    street: true
+                }
+            }
+        }
+    })
 
-    const user = rows[0]
-
-    if(!user) return next(new ErrorHandler('Usuario o contraseña inválida', 401))
+    if(!user) 
+        return next(new ErrorHandler('Usuario o contraseña inválida', 401))
 
     const isMatch = await matchPassword(password, user.password)
-    if(!isMatch) return next(new ErrorHandler('Usuario o contraseña inválida', 401))
-    
+
+    if(!isMatch) 
+        return next(new ErrorHandler('Usuario o contraseña inválida', 401))
+
     delete user.password
-    delete user.reset_pwd_token
-    delete user.reset_pwd_expire
+    delete user.resetPwdToken
+    delete user.resetPwdExpire
 
     sendToken(user, 200, res)
 })
@@ -83,12 +127,14 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
 
     if(!email) return next(new ErrorHandler('Por favor ingrese el campo: email', 400))
 
-    const query = 'SELECT * FROM users WHERE email = ?;'
-    const [rows, _] = await pool.query(query, [email])
+    const user = await prisma.user.findUnique({
+        where: { email }
+    })
 
-    if(!rows[0]) return next(new ErrorHandler('Correo inválido', 400))
 
-    const user = rows[0]
+    if(!user) 
+        return next(new ErrorHandler('Correo inválido', 400))
+
     const resetToken = await getResetPasswordToken(user.id)
 
     const resetPasswordURL = `${process.env.FRONTEND_HOST}/password/reset?token=${resetToken}`
@@ -106,10 +152,17 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
             message: `Se envió un enlace de recuperación al correo: ${user.email}`
         })
     } catch (err) {
-        const query = 'UPDATE users SET reset_pwd_token = ?, reset_pwd_expire = ?'
-        await pool.query(query, [null, null])
-        
-        return next(new ErrorHandler(err.message, 500))
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                resetPwdToken: null,
+                resetPwdExpire: null
+            }
+        })
+
+        // return next(new ErrorHandler(err.message, 500))
+        next(new ErrorHandler(err.message, 500))
     }
 })
 
@@ -127,25 +180,35 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
         .update(token)
         .digest('hex')
 
-    const query = 'SELECT * FROM users WHERE reset_pwd_token = ? AND reset_pwd_expire > CURRENT_TIMESTAMP;'
-    const [rows, _] = await pool.query(query, [resetPasswordToken])
 
-    if(!rows[0]) return next(new ErrorHandler('Este enlace de recuperación es inválido o ha expirado', 400))
-    const user = rows[0]
+    const user = await prisma.user.findFirst({
+        where: {
+            resetPwdToken: resetPasswordToken,
+            resetPwdExpire: { gt: new Date() }
+        }
+    })
 
     if(password !== confirm_password) return next(new ErrorHandler('Las contraseñas no coinciden', 400))
 
     const isMatch = await matchPassword(password, user.password)
-    if(isMatch) return next(new ErrorHandler('La nueva contraseña nueva debe ser diferente a la anterior', 400))
+
+    if(isMatch) 
+        return next(new ErrorHandler('La nueva contraseña nueva debe ser diferente a la anterior', 400))
     
     const encryptedPassword = await encryptPassword(password)
 
-    const _query = 'UPDATE users SET password = ?, reset_pwd_token = ?, reset_pwd_expire = ? WHERE id = ?;'
-    const [_rows, __] = await pool.query(_query, [encryptedPassword, null, null, user.id])
+    await prisma.user.update({
+        where: { id: user.id },
+        data: {
+            password: encryptedPassword,
+            resetPwdToken: null,
+            resetPwdExpire: null
+        }
+    })
 
     delete user.password
-    delete user.reset_pwd_token
-    delete user.reset_pwd_expire
+    delete user.resetPwdToken
+    delete user.resetPwdExpire
 
     sendToken(user, 200, res)
 })
@@ -157,7 +220,7 @@ export const getUserDetails = catchAsyncErrors(async (req, res, next) => {
 
 
 export const updateProfile = catchAsyncErrors(async (req, res, next) => {
-    const objParams = {
+    const obj = {
         name: req.body.name,
         lastname: req.body.lastname,
         username: req.body.username,
@@ -166,15 +229,15 @@ export const updateProfile = catchAsyncErrors(async (req, res, next) => {
         phone: req.body.phone
     }
 
-    for(let key in objParams)
-        if(objParams[key] === undefined || objParams[key] === '') delete objParams[key]
+    for(let key in obj)
+        if(obj[key] === undefined || obj[key] === '') 
+            delete obj[key]
 
-    let query = 'UPDATE users SET '
-    Object.keys(objParams).forEach(elem => query += `${elem} = ?, `)
-    query = query.slice(0, query.length - 2)
-    query += ' WHERE id = ?;'
-
-    await pool.query(query, [...Object.values(objParams), req.user.id])
+    
+    await prisma.user.update({
+        where: { id: req.user.id },
+        data: obj
+    })
 
     res.status(200).json({
         success: true,
@@ -186,27 +249,37 @@ export const updateProfile = catchAsyncErrors(async (req, res, next) => {
 export const updatePassword = catchAsyncErrors(async (req, res, next) => {
     const requiredFields = ['old_password', 'new_password', 'confirm_password']
     const [isOk, field] = verifyRequiredFields(req.body, requiredFields)
-    console.log("req.user:", req.user)
+    
     if(!isOk) return next(new ErrorHandler(`Por favor ingrese el campo: ${field}`))
 
     const { old_password, new_password, confirm_password } = req.body
 
-    const query = 'SELECT password FROM users WHERE id = ?;'
-    const [rows, _] = await pool.query(query, [req.user.id])
-    const encryptedPasswordFromDB = rows[0].password
+
+    const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { password: true }
+    })
+
+    const encryptedPasswordFromDB = user.password
 
     const isMatch = await matchPassword(old_password, encryptedPasswordFromDB)
-    if(!isMatch) return next(new ErrorHandler('La contraseña anterior es incorrecta', 400))
+    if(!isMatch) 
+        return next(new ErrorHandler('La contraseña anterior es incorrecta', 400))
 
     const _isMatch = await matchPassword(new_password, encryptedPasswordFromDB)
-    if(_isMatch) return next(new ErrorHandler('La nueva contraseña nueva debe ser diferente a la anterior', 400))
+    if(_isMatch) 
+        return next(new ErrorHandler('La nueva contraseña nueva debe ser diferente a la anterior', 400))
 
-    if(new_password !== confirm_password) return next(new ErrorHandler('Las contraseñas no coinciden', 400))
+    if(new_password !== confirm_password) 
+        return next(new ErrorHandler('Las contraseñas no coinciden', 400))
 
     const encryptedPasswordFromReq = await encryptPassword(new_password)
 
-    const _query = 'UPDATE users SET password = ? WHERE id = ?;'
-    const [_rows, __] = await pool.query(_query, [encryptedPasswordFromReq, req.user.id])
+
+    await prisma.user.update({
+        where: { id: req.user.id },
+        data: { password: encryptedPasswordFromReq }
+    })
 
     res.status(200).json({
         success: true,

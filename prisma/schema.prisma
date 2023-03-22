@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource mercadoclone_db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  name           String
+  lastname       String
+  username       String          @unique
+  dni            Int             @unique
+  email          String          @unique
+  password       String
+  phone          String?
+  createdAt      DateTime        @default(now())
+  resetPwdToken  String?
+  resetPwdExpire DateTime?
+  addresses      Address[]
+  articles       Article[]
+  reviews        Review[]
+  favorites      Favorite[]
+  history        History[]
+  purchases      Purchase[]
+  questionInfo   QuestionsInfo[]
+  messages       Message[]
+}
+
+model Address {
+  id             Int     @id @default(autoincrement())
+  state          String
+  city           String
+  municipality   String
+  parish         String
+  street         String
+  houseNumber    Int?
+  currentAddress Boolean
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         Int
+
+  @@index([userId])
+}
+
+model Article {
+  id           Int             @id @default(autoincrement())
+  title        String
+  brand        String
+  model        String
+  isNew        Boolean
+  isPaused     Boolean
+  stock        Int
+  price        Float
+  shipmentFree Boolean
+  daysWarranty Int
+  description  String
+  pictures     Picture[]
+  reviews      Review[]
+  favorites    Favorite[]
+  history      History[]
+  questionInfo QuestionsInfo[]
+  purchases    Purchase[]
+  categories   Category[]
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       Int
+
+  @@index([userId])
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  category String
+  articles Article[]
+}
+
+model Picture {
+  id        Int     @id @default(autoincrement())
+  publicId  String
+  link      String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId Int
+
+  @@index([articleId])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int
+  review    String
+  date      DateTime
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    Int?
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId Int
+
+  @@index([userId])
+  @@index([articleId])
+}
+
+model Favorite {
+  id        Int     @id @default(autoincrement())
+  link      String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId Int
+
+  @@index([userId])
+  @@index([articleId])
+}
+
+model History {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @default(now())
+  link      String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId Int
+
+  @@index([userId])
+  @@index([articleId])
+}
+
+model QuestionsInfo {
+  id        Int        @id @default(autoincrement())
+  link      String
+  questions Question[]
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    Int?
+  article   Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId Int
+
+  @@index([userId])
+  @@index([articleId])
+}
+
+model Question {
+  id              Int           @id @default(autoincrement())
+  question        String
+  questionDate    DateTime
+  answer          String?
+  answerDate      DateTime?
+  QuestionsInfo   QuestionsInfo @relation(fields: [questionsInfoId], references: [id], onDelete: Cascade)
+  questionsInfoId Int
+
+  @@index([questionsInfoId])
+}
+
+model Purchase {
+  id        Int       @id @default(autoincrement())
+  quantity  Int
+  delivered Boolean
+  date      DateTime
+  link      String
+  messages  Message[]
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    Int?
+  article   Article?  @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  articleId Int?
+
+  @@index([userId])
+  @@index([articleId])
+}
+
+model Message {
+  id         Int       @id @default(autoincrement())
+  message    String
+  date       DateTime
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId     Int?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  purchaseId Int?
+
+  @@index([userId])
+  @@index([purchaseId])
+}

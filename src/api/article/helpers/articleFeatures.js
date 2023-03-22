@@ -1,49 +1,121 @@
-import { pool } from '../../../config/database'
 
 
 export const ArticleFeatures = class {
     constructor(queryParams){
         this.query = ''
         this.queryParams = queryParams
-        this.params = []
     }
 
     search(){
-        this.query += `
-            SELECT a.id, a.title, a.price, a.shipment_free, a.is_new, ad.state, CONCAT('[',
-                (SELECT CONCAT(GROUP_CONCAT('{"id": ', c.id, ', "category": "', c.category, '"}'))
-                FROM categories c, articles_categories ac
-                WHERE a.id = ac.article_id AND c.id = ac.category_id)
-            , ']') categories, CONCAT('[',
-                (SELECT CONCAT(GROUP_CONCAT('{"id": ', p.id, ', "url": "', p.link, '"}'))
-                FROM pictures p
-                WHERE a.id = p.article_id)
-            , ']') images
-            FROM articles a
-            JOIN articles_categories ac ON a.id = ac.article_id
-            JOIN categories c ON c.id = ac.category_id
-            JOIN addresses ad ON a.user_id = ad.user_id
-            WHERE a.is_paused = false
-            GROUP BY a.id
-            ORDER BY a.id
-            LIMIT ?, ?;
-        `
+        this.query = {
+            where: {
+                isPaused: false
+            },
+            select: {
+                id: true,
+                title: true,
+                price: true,
+                shipmentFree: true,
+                isNew: true,
+                user: {
+                    select: {
+                        addresses: {
+                            where: {
+                                currentAddress: true
+                            },
+                            select: {
+                                id: true,
+                                state: true
+                            }
+                        }   
+                    }
+                },
+                categories: true,
+                pictures: {
+                    select: {
+                        id: true,
+                        link: true
+                    }
+                }
+            }
+        }
+
         return this
     }
 
-    concatSQLWith(value, param){
-        this.query = this.query.replace('a.is_paused = false', `${value} AND a.is_paused = false`)
-        this.params.push(param)
-    }
-
     filter(){
-        if(this.queryParams.keyword) this.concatSQLWith('a.title LIKE ?', `%${this.queryParams.keyword}%`)
-        if(this.queryParams.category_id) this.concatSQLWith('c.id = ?', this.queryParams.category_id)
-        if(this.queryParams.state) this.concatSQLWith('ad.state = ?', this.queryParams.state)
-        if(this.queryParams.shipment_free) this.concatSQLWith('a.shipment_free = ?', this.queryParams.shipment_free)        
-        if(this.queryParams.news !== undefined) this.concatSQLWith('a.is_new = ?', this.queryParams.news)        
-        if(this.queryParams.price?.gte) this.concatSQLWith('a.price >= ?', Number(this.queryParams.price.gte))        
-        if(this.queryParams.price?.lte) this.concatSQLWith('a.price <= ?', Number(this.queryParams.price.lte))    
+        if(this.queryParams.keyword){
+            const keyword = this.queryParams.keyword
+            this.query.where = {
+                ...this.query.where,
+                title: {
+                    contains: keyword
+                }
+            }
+        }
+
+        if(this.queryParams.category){
+            const category = this.queryParams.category
+            this.query.where = {
+                ...this.query.where,
+                categories: {
+                    some: {
+                        category
+                    }
+                }
+            }
+        }
+
+        if(this.queryParams.state){
+            const state = this.queryParams.state
+            this.query.where = {
+                ...this.query.where,
+                user: {
+                    addresses: {
+                        some: {
+                            state,
+                            currentAddress: true
+                        }
+                    }
+                }
+            }
+        }
+        
+        if(this.queryParams.shipmentFree){
+            const shipmentFree = this.queryParams.shipmentFree
+            this.query.where = {
+                ...this.query.where,
+                shipmentFree
+            }
+        }
+
+        if(this.queryParams.news){
+            const isNew = this.queryParams.news
+            this.query.where = {
+                ...this.query.where,
+                isNew
+            }
+        }
+
+        if(this.queryParams.price?.lte){
+            const lte = Number(this.queryParams.price.lte)
+            this.query.where = {
+                ...this.query.where,
+                price: {
+                    lte
+                }
+            }
+        }
+
+        if(this.queryParams.price?.gte){
+            const gte = Number(this.queryParams.price.gte)
+            this.query.where = {
+                ...this.query.where,
+                price: {
+                    gte
+                }
+            }
+        }
 
         return this
     }
@@ -53,23 +125,32 @@ export const ArticleFeatures = class {
         const page = this.queryParams.page ?? 1
         const offset = (page - 1) * limit
 
-        this.params.push(offset, limit)
+        this.query.take = limit
+        this.query.skip = offset
         return this
     }
 
-    async getQuantity(){
-        let sql = 'SELECT COUNT(*) articles_quantity FROM (SELECT DISTINCT(a.id)' + this.query.slice(553)
-            sql = sql.slice(0, -59) + ') T;'
-        return (await pool.query(sql, this.params))[0][0].articles_quantity
+    async getQuantity(articleModel){
+        const query = JSON.parse(JSON.stringify(this.query))
+        delete query.select
+        delete query.skip
+        delete query.take
+        return await articleModel.count(query)
     }
 
-    async run(){
-        return (await pool.query(this.query, this.params))[0].map(row => ({
-            ...row,
-            shipment_free: Boolean(row.shipment_free),
-            is_new: Boolean(row.is_new),
-            categories: JSON.parse(row.categories.replaceAll('\"', '"')),
-            images: JSON.parse(row.images.replaceAll('\"', '"'))
-        }))
+    async run(articleModel, favoriteModel, userId){
+        let articles = await articleModel.findMany(this.query)
+        if(userId){
+            const favorites = (await favoriteModel.findMany({
+                where: { userId: Number(userId) },
+                select: { articleId: true }
+            })).map(({ articleId }) => articleId)
+    
+            articles = articles.map(article => ({
+                ...article,
+                isFavorite: favorites.includes(article.id) ? true : false 
+            }))
+        }
+        return articles
     }
 }

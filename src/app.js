@@ -28,7 +28,7 @@ app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json({ limit: '60mb' }))
 app.use(cookieParser(process.env.SECRET_SESSION_KEY))
 process.env.NODE_ENV === 'development' && app.use(morgan('dev'))
-app.use(cors({ 
+app.use(cors({
     origin: process.env.FRONTEND_HOST,
     credentials: true
 }))

@@ -6,7 +6,9 @@ import {
     getArticles,
     updateArticle,
     togglePauseArticle,
-    searchArticleFilter
+    searchArticleFilter,
+    articleDetails,
+    getArticlesByUserId
 } from './article.controller'
 import { isAuthenticatedUser } from '../../middleware/auth'
 
@@ -21,6 +23,10 @@ articleRouter.route('/article/update').put(isAuthenticatedUser, updateArticle)
 
 articleRouter.route('/articles').get(getArticles)
 
+articleRouter.route('/articles/by-user').get(getArticlesByUserId)
+
 articleRouter.route('/article/toggle-pause').patch(isAuthenticatedUser, togglePauseArticle)
 
 articleRouter.route('/article/search').get(searchArticleFilter)
+
+articleRouter.route('/article/details').get(articleDetails)
