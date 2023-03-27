@@ -1,9 +1,7 @@
 "use strict";
 
-var _localtunnel = _interopRequireDefault(require("localtunnel"));
 var _cloudinary = require("cloudinary");
 var _app = require("./app");
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 // Handling Uncaught Exception
 process.on("uncaughtException", err => {
   console.log("Error: ".concat(err.message));
