@@ -1,0 +1,5 @@
+events:
+  install:
+    - npm intall
+  deploy:
+    - npm start
