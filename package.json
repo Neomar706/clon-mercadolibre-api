@@ -7,7 +7,7 @@
     "dev": "nodemon",
     "prisma:studio": "prisma studio",
     "prisma:preload": "rimraf prisma/migrations && prisma migrate dev --name initial && node pruebas/prismaPreload.js",
-    "build": "npm install && rimraf dist && babel src --out-dir dist",
+    "build": "npm install && npm add -D prisma && rimraf dist && babel src --out-dir dist",
     "start": "node dist/index.js",
     "rr": "rimraf dist"
   },
