@@ -8,6 +8,7 @@ import { ArticleFeatures } from './helpers/articleFeatures'
 import { deleteFromDBAndCloudinary } from './helpers/deleteFromDBAndCloudinary'
 import { withoutPicturesOfDatabase } from './helpers/withoutPicturesOfDatabase'
 import { randomCategory } from './helpers/randomCategory'
+import { getPriceBs } from './helpers/getPriceBs'
 
 
 const prisma = new PrismaClient()
@@ -27,7 +28,10 @@ export const createArticle = catchAsyncErrors(async (req, res, next) => {
 
     for(let i = 0; i < images.length; i++){
         const result = await cloudinary.uploader.upload(images[i], {
-            folder: 'articles'
+            folder: 'articles',
+            transformation: [{
+                width: 1000
+            }]
         })
 
         imagesLinks.push({
@@ -148,12 +152,16 @@ export const updateArticle = catchAsyncErrors(async (req, res, next) => {
         
         deleteFromDBAndCloudinary(prisma.picture, pictures4Delete, next)        
 
+        
         const filteredPictures = withoutPicturesOfDatabase(obj.pictures)
 
         for(let i = 0; i < filteredPictures.length; i++){
             try {
                 const result = await cloudinary.uploader.upload(filteredPictures[i], {
-                    folder: 'articles'
+                    folder: 'articles',
+                    transformation: [{
+                        width: 1000
+                    }]
                 })
                 imagesLinks.push({
                     publicId: result.public_id,
@@ -406,7 +414,6 @@ export const searchArticleFilter = catchAsyncErrors(async (req, res, next) => {
     category     ? queryParams['category']     = category                       : null
     page         ? queryParams['page']         = Number(page)                   : null
     limit        ? queryParams['limit']        = Number(limit)                  : null
-    console.log(JSON.stringify(req.query, null, 4))
 
     const query = new ArticleFeatures(queryParams)
         .search()
@@ -426,7 +433,8 @@ export const searchArticleFilter = catchAsyncErrors(async (req, res, next) => {
 export const articleDetails = catchAsyncErrors(async (req, res, next) => {
     const articleId = Number(req.query.id)
 
-    if(!articleId) return next(new ErrorHandler('Por favor ingrese el campo: id'))
+    if(!articleId) 
+        return next(new ErrorHandler('Por favor ingrese el campo: id'))
 
     const article = await prisma.article.findUnique({
         where: { id: articleId },
@@ -484,7 +492,7 @@ export const articleDetails = catchAsyncErrors(async (req, res, next) => {
     )
     .map(({ articleId }) => articleId)
     .includes(article.id) ? true : false
-        
+
     res.status(200).json({
         success: true,
         result: article

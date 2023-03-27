@@ -1,0 +1,126 @@
+{
+    "users": [{
+        "id": 1,
+        "name": "Timoteo",
+        "lastname": "Blanco",
+        "username": "Timoteo123",
+        "dni": 9572410,
+        "email": "neomarp706@gmail.com",
+        "password": "$2a$10$LEq2M1RLw6hErfXdg4imzO8LUc9T8u3mP50.vh5OqpXSToDOh.CKy",
+        "phone": "04141873825"
+    }, {
+        "id": 2,
+        "name": "Nomar",
+        "lastname": "Polo",
+        "username": "Nomar789",
+        "dni": 27296789,
+        "email": "nomarpolo789@gmail.com",
+        "password": "$2a$10$QBs6UhV6kB3ToZzNlko4Quw1PMrVUyKK3b/dax2kCSZ0sV.P1EVmy",
+        "phone": "04128788520"
+    }, {
+        "id": 3,
+        "name": "Gurrufio",
+        "lastname": "Jimenez",
+        "username": "Gurrufio123",
+        "dni": 123692789,
+        "email": "gurrufioj@g.mail.com",
+        "password": "$2a$10$3saO2gsa.wblO7x5d5MysOFOlrxNTK.1Dp4zT3iZqJJF3tkXpqRNa",
+        "phone": "04125870548"
+    }, {
+        "id": 4,
+        "name": "Neomar",
+        "lastname": "Polo",
+        "username": "Neomar706",
+        "dni": 28161706,
+        "email": "neomarp706@yahoo.com",
+        "password": "$2a$10$LRxlPuD5K1moiyVXnIYXqezhfWooPk7bBgWmyZwdo0qzQvjlXxRsa",
+        "phone": "04122779753"
+    }, {
+        "id": 5,
+        "name": "Franklin",
+        "lastname": "Hernandez",
+        "username": "Franklin123",
+        "dni": 28291401,
+        "email": "franklin_@gmail.com",
+        "password": "$2a$10$6vM9qvkJpvibIOfXUrrbfeXuoEblNxYI.2B4O0NLgrjGOGenlK6qe",
+        "phone": "04147912416"
+    }, {
+        "id": 6,
+        "name": "Oliver",
+        "lastname": "Mujica",
+        "username": "Oliver123",
+        "dni": 26969622,
+        "email": "oliver_@gmail.com",
+        "password": "$2a$10$YCM9hqmtbBTZGWiuIbnWZegdmcBzZULaomBAaH4AZy2L3oERYusaW",
+        "phone": "04149982169"
+    }],
+    "articles": [{
+        "id": 1,
+        "userId": 4,
+        "title": "74ls04 Compuerta Logica 0r Inversor Ttl 7404",
+        "brand": "Genérica",
+        "model": "SN74LS04N",
+        "isNew": true,
+        "isPaused": false,
+        "stock": 6,
+        "price": 2.4,
+        "shipmentFree": false,
+        "daysWarranty": 7,
+        "description": "****************************************************POR FAVOR LEA LAS CONDICIONES DE VENTA****************************************************- NO hacemos entregas personales en BARQUISIMETO.",
+        "pictures": [{
+            "id": 1,
+            "publicId": "articles/tvge3ybcdxhl6eekim67",
+            "link": "https://res.cloudinary.com/dlqevww9k/image/upload/v1679207484/articles/tvge3ybcdxhl6eekim67.jpg"    
+        }, {
+	    "id": 2,
+	    "publicId": "articles/bhrytvtx2f4q49df3q5z",
+	    "link": "https://res.cloudinary.com/dlqevww9k/image/upload/v1679207485/articles/bhrytvtx2f4q49df3q5z.jpg"
+	}],
+        "categories": [6, 11, 12],
+        "favorites": [{
+            "id": 1,
+            "userId": 5,
+            "link":"/article?id=1"
+        }]
+    }],
+    "categories": [{
+        "id": 1,
+        "category": "Celulares y Teléfonos"
+    }, {
+        "id": 2,
+        "category": "Joyería"
+    }, {
+        "id": 3,
+        "category": "Electrodomésticos"
+    }, {
+        "id": 4,
+        "category": "Hogar y Muebles"
+    }, {
+        "id": 5,
+        "category": "TV, Audio y Video"
+    }, {
+        "id": 6,
+        "category": "Computación"
+    }, {
+        "id": 7,
+        "category": "Gaming"
+    }, {
+        "id": 8,
+        "category": "Supermercado"
+    }, {
+        "id": 9,
+        "category": "Deportes y Fitness"
+    }, {
+        "id": 10,
+        "category": "Belleza y Cuidado personal"
+    }, {
+        "id": 11,
+        "category": "Electrónica"
+    }, {
+        "id": 12,
+        "category": "Componentes electrónicos"
+    }, {
+        "id": 13,
+        "category": "Fármacos"
+    }]
+}

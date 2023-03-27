@@ -8,7 +8,7 @@ const prisma = new PrismaClient()
 
 export const toggleArticleFavorite = catchAsyncErrors(async (req, res, next) => {
     const userId = req.user.id
-    const articleId = Number(req.query.articleId)
+    const articleId = Number(req.query.articleId) || 0
 
     if(!articleId)
         return next(new ErrorHandler('Por favor ingrese el campo: articleId', 400))
@@ -27,15 +27,18 @@ export const toggleArticleFavorite = catchAsyncErrors(async (req, res, next) => 
     } else {
         const article = await prisma.article.findFirst({
             where: { id: articleId },
-            select: { title: true }
+            select: { userId: true }
         })
 
-        if(!article)
+        if(!article?.userId)
             return next(new ErrorHandler('No se encontró el artículo', 404))
+
+        if(article.userId === userId)
+            return next(new ErrorHandler('No puedes guardar en favoritos un artículo publicado por tí', 400))
 
         await prisma.favorite.create({
             data: {
-                link: `/article?id=${articleId}&article_name=${article.title}`,
+                link: `/article?id=${articleId}`,
                 userId,
                 articleId
             }
@@ -58,7 +61,14 @@ export const getArticlesFromFavorite = catchAsyncErrors(async (req, res, next) =
 
     const offset = (page - 1) * limit
 
-    const articles = await prisma.favorite.findMany({
+    const count = await prisma.favorite.count({
+        where: { userId }
+    })
+
+    if(!count)
+        return next(new ErrorHandler('No se encontró ningún artículo', 404))
+
+    const favorites = await prisma.favorite.findMany({
         where: { userId },
         select: {
             id: true,
@@ -68,6 +78,8 @@ export const getArticlesFromFavorite = catchAsyncErrors(async (req, res, next) =
                     id: true,
                     title: true,
                     price: true,
+                    stock: true,
+                    shipmentFree: true,
                     pictures: {
                         select: {
                             id: true,
@@ -78,14 +90,19 @@ export const getArticlesFromFavorite = catchAsyncErrors(async (req, res, next) =
             }
         },
         take: limit,
-        skip: offset
+        skip: offset,
+        orderBy: {
+            date: 'desc'
+        }
     })
 
-    if(!articles)
-        return next(new ErrorHandler('No se encontró ningún artículo', 404))
+    const result = {
+        count,
+        favorites
+    }
 
     res.status(200).json({
         success: true,
-        results: articles
+        result
     })
 })

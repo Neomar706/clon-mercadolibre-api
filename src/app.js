@@ -14,9 +14,12 @@ import { categoryRouter } from './api/category/category.routes'
 import { articleRouter } from './api/article/article.routes'
 import { favoriteRouter } from './api/favorite/favorite.routes'
 import { addressRouter } from './api/address/address.routes'
+import { questionRouter } from './api/question/question.routes'
+import { historyRouter } from './api/history/history.routes'
 
 
-dotenv.config({ path: path.join(__dirname, 'config', '.env') })
+// dotenv.config({ path: path.join(__dirname, 'config', '.env') })
+dotenv.config({ path: path.join(__dirname, '..', '.env') })
 export const app = express()
 
 /** Global variables */
@@ -41,6 +44,8 @@ app.use('/api/v1', categoryRouter)
 app.use('/api/v1', articleRouter)
 app.use('/api/v1', favoriteRouter)
 app.use('/api/v1', addressRouter)
+app.use('/api/v1', questionRouter)
+app.use('/api/v1', historyRouter)
 
 
 app.use(errorMiddleware)
