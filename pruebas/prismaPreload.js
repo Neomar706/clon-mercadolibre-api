@@ -30,41 +30,41 @@ const uploadImages = async function(images){
 }
 
 const main = async function(){
-    const users = prismaData.users
-    for(let i = 0; i < users.length; i++){
-        await prisma.user.create({
-            data: {
-                ...users[i],
-                addresses: {
-                    create: users[i].addresses
-                }
-            }
-        })
-    }
+    // const users = prismaData.users
+    // for(let i = 0; i < users.length; i++){
+    //     await prisma.user.create({
+    //         data: {
+    //             ...users[i],
+    //             addresses: {
+    //                 create: users[i].addresses
+    //             }
+    //         }
+    //     })
+    // }
 
-    await prisma.category.createMany({
-        data: prismaData.categories
-    })
+    // await prisma.category.createMany({
+    //     data: prismaData.categories
+    // })
 
     const START_INDEX = 0
     const articles = prismaData.articles
-    for(let i = START_INDEX; i < articles.length-1; i++){
+    for(let i = START_INDEX; i < articles.length; i++){
         await prisma.article.create({
             data: {
-                id: articles[31].id,
-                userId: articles[31].userId,
-                title: articles[31].title,
-                brand: articles[31].brand,
-                model: articles[31].model,
-                isNew: articles[31].isNew,
-                isPaused: articles[31].isPaused,
-                stock: articles[31].stock,
-                price: articles[31].price,
-                shipmentFree: articles[31].shipmentFree,
-                daysWarranty: articles[31].daysWarranty,
-                description: articles[31].description,
-                pictures: { create: await uploadImages(articles[31].pictures) },
-                categories: { connect: articles[31].categories.map(id => ({ id })) }
+                id: articles[i].id,
+                userId: articles[i].userId,
+                title: articles[i].title,
+                brand: articles[i].brand,
+                model: articles[i].model,
+                isNew: articles[i].isNew,
+                isPaused: articles[i].isPaused,
+                stock: articles[i].stock,
+                price: articles[i].price,
+                shipmentFree: articles[i].shipmentFree,
+                daysWarranty: articles[i].daysWarranty,
+                description: articles[i].description,
+                pictures: { create: await uploadImages(articles[i].pictures) },
+                categories: { connect: articles[i].categories.map(id => ({ id })) }
             }
         })
     }
