@@ -1,6 +1,7 @@
 import session from 'express-session'
 import mysqlSession from 'express-mysql-session'
 
+
 export const sessionMiddleware = function(){
 
     const MySQLStore = mysqlSession(session)
