@@ -44,8 +44,7 @@ app.use((0, _cookieParser.default)(process.env.SECRET_SESSION_KEY));
 process.env.NODE_ENV === 'development' && app.use((0, _morgan.default)('dev'));
 app.use((0, _cors.default)({
   // origin: process.env.FRONTEND_HOST,
-  origin: 'http://localhost:8081',
-  // origin: 'https://clon-mercadolibre-production.up.railway.app',
+  origin: 'https://clon-mercadolibre.up.railway.app',
   credentials: true
 }));
 app.use((0, _session.sessionMiddleware)());

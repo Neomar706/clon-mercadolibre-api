@@ -32,7 +32,8 @@ app.use(bodyParser.json({ limit: '60mb' }))
 app.use(cookieParser(process.env.SECRET_SESSION_KEY))
 process.env.NODE_ENV === 'development' && app.use(morgan('dev'))
 app.use(cors({
-    origin: process.env.FRONTEND_HOST,
+    // origin: process.env.FRONTEND_HOST,
+    origin: 'https://clon-mercadolibre.up.railway.app',
     credentials: true
 }))
 app.use(sessionMiddleware())
